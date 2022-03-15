@@ -273,23 +273,23 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                 single_teams_worksheet.write(
                     STATISTICS_START_ROW, STATISTICS_START_COL, "")
 
-                # Create the chart for points in auto (high vs. low)
-                pts_in_auto_chart = output_workbook.add_chart(
+                # Create the chart for cargo scored in auto (high vs. low)
+                cargo_in_auto_chart = output_workbook.add_chart(
                     {'type': 'column'})
-                pts_in_auto_chart.set_title(
-                    {'name': 'AUTO - Upper vs. Lower Hub Points'})
-                pts_in_auto_chart.set_x_axis(
+                cargo_in_auto_chart.set_title(
+                    {'name': 'AUTO - Upper vs. Lower Hub Cargo'})
+                cargo_in_auto_chart.set_x_axis(
                     {'name': 'Qualification Match'})
-                pts_in_auto_chart.set_y_axis(
-                    {'name': 'Points Scored',
+                cargo_in_auto_chart.set_y_axis(
+                    {'name': 'Cargo Scored',
                      'max': MAX_POSSIBLE_AUTO_POINTS})
-                pts_in_auto_chart.add_series({
+                cargo_in_auto_chart.add_series({
                     'name': 'Upper Hub',
                     'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
                     'values': f'={single_teams_data.team_num}!C2:C{current_match_count + 1}',
                     'fill': {'color': CHART_BLUE},
                 })
-                pts_in_auto_chart.add_series({
+                cargo_in_auto_chart.add_series({
                     'name': 'Lower Hub',
                     'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
                     'values': f'={single_teams_data.team_num}!D2:D{current_match_count + 1}',
@@ -297,25 +297,25 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                 })
 
                 single_teams_worksheet.insert_chart(
-                    f"{FIRST_CHART_COL}{CHART_START_ROW}", pts_in_auto_chart)
+                    f"{FIRST_CHART_COL}{CHART_START_ROW}", cargo_in_auto_chart)
 
-                # Create the chart for points in teleop (high vs. low)
-                pts_in_teleop_chart = output_workbook.add_chart(
+                # Create the chart for cargo scored in teleop (high vs. low)
+                cargo_in_teleop_chart = output_workbook.add_chart(
                     {'type': 'column'})
-                pts_in_teleop_chart.set_title(
-                    {'name': 'TELEOP - Upper vs. Lower Hub Points'})
-                pts_in_teleop_chart.set_x_axis(
+                cargo_in_teleop_chart.set_title(
+                    {'name': 'TELEOP - Upper vs. Lower Hub Cargo'})
+                cargo_in_teleop_chart.set_x_axis(
                     {'name': 'Qualification Match'})
-                pts_in_teleop_chart.set_y_axis(
-                    {'name': 'Points Scored',
+                cargo_in_teleop_chart.set_y_axis(
+                    {'name': 'Cargo Scored',
                      'max': MAX_POSSIBLE_TELE_POINTS})
-                pts_in_teleop_chart.add_series({
+                cargo_in_teleop_chart.add_series({
                     'name': 'Upper Hub',
                     'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
                     'values': f'={single_teams_data.team_num}!E2:E{current_match_count + 1}',
                     'fill': {'color': CHART_BLUE},
                 })
-                pts_in_teleop_chart.add_series({
+                cargo_in_teleop_chart.add_series({
                     'name': 'Lower Hub',
                     'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
                     'values': f'={single_teams_data.team_num}!F2:F{current_match_count + 1}',
@@ -323,4 +323,4 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                 })
 
                 single_teams_worksheet.insert_chart(
-                    f"{SECOND_CHART_COL}{CHART_START_ROW}", pts_in_teleop_chart)
+                    f"{SECOND_CHART_COL}{CHART_START_ROW}", cargo_in_teleop_chart)
