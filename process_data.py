@@ -20,6 +20,7 @@ output_worksheets = []
 
 MAX_NUMBER_OF_QUAL_MATCHES = 15
 STATISTICS_START_ROW = 16
+STATISTICS_START_COL = 2
 CHART_START_ROW = 25
 CHART_ROW_SPACING = 10
 FIRST_CHART_COL = "A"
@@ -267,6 +268,10 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
 
                 # Get the current number of matches this team has completed
                 current_match_count = len(single_teams_data.match_data)
+
+                # Summary statistics
+                single_teams_worksheet.write(
+                    STATISTICS_START_ROW, STATISTICS_START_COL, "")
 
                 # Create the chart for points in auto (high vs. low)
                 pts_in_auto_chart = output_workbook.add_chart(
