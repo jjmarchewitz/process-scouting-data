@@ -1,4 +1,5 @@
 import csv
+import enum
 import os
 import xlsxwriter
 from dataclasses import dataclass, field
@@ -17,18 +18,25 @@ all_team_match_entries = []
 all_team_data = []
 team_num_list = []
 output_worksheets = []
+all_team_avg_match_contribution = []
+all_team_avg_auto = []
+all_team_avg_tele = []
+all_team_avg_climb = []
+all_team_defense_percent = []
+top_teams_across_categories = []
 
 MAX_NUMBER_OF_QUAL_MATCHES = 15
-AVERAGES_ROW = 16
-STATISTICS_START_ROW = 18
+DATA_START_ROW = 32
+AVERAGES_ROW = DATA_START_ROW + MAX_NUMBER_OF_QUAL_MATCHES + 1
+STATISTICS_START_ROW = 16
 STATISTICS_START_COL = 0
-CHART_START_ROW = 25
+CHART_START_ROW = 1
 CHART_ROW_SPACING = 16
 FIRST_CHART_COL = "A"
 SECOND_CHART_COL = "E"
+THIRD_CHART_COL = "I"
+NUM_OF_TOP_TEAMS_TO_COLOR_PER_CATEGORY = 5
 current_match_count = 0
-CHART_RED = "#EA5545"
-CHART_BLUE = "#27AEEF"
 
 # For a single robot
 MAX_POSSIBLE_AUTO_POINTS = 10
@@ -39,6 +47,45 @@ MAX_POSSIBLE_TELE_POINTS = 30
 # CLASSES AND DICTS #
 #####################
 
+chart_colors = {
+    "RED": "#EA5545",
+    "BLUE": "#27AEEF",
+    "YELLOW": "#FFCA3A",
+    "GREEN": "#4DA167",
+    "PURPLE": "#805D93",
+    "BLACK": "#252323",
+}
+
+team_labeling_colors = {
+    1: "#fe3b1e",
+    2: "#f4ea5c",
+    3: "#2d69cb",
+    4: "#11963b",
+    5: "#e61cf7",
+    6: "#b7c0ff",
+    7: "#ae6507",
+    8: "#4f02ec",
+    9: "#fa2f7a",
+    10: "#51e113",
+    11: "#6febff",
+    12: "#f7aa30",
+    13: "#992f7c",
+    14: "#00a6ee",
+    15: "#acbe9c",
+    16: "#a12c32",
+    17: "#9b9500",
+    18: "#08fdcc",
+    19: "#827c70",
+    20: "#8e7ba4",
+    21: "#566204",
+    22: "#fb9fda",
+    23: "#08a29a",
+    24: "#2a666a",
+    25: "#805D93",
+}
+
+team_labeling_formats = {}
+
 
 taxi_completed_dict = {
     "Yes": 1,
@@ -46,7 +93,7 @@ taxi_completed_dict = {
     "": -1,
 }
 
-hangar_level_dict = {
+hangar_level_points_dict = {
     "No Hang": 0,
     "Low Rung (1)": 4,
     "Mid Rung (2)": 6,
@@ -55,11 +102,25 @@ hangar_level_dict = {
     "": -1
 }
 
-defense_level_dict = {
+hangar_level_empty_count_dict = {
+    "No Hang": 0,
+    "Low Rung (1)": 0,
+    "Mid Rung (2)": 0,
+    "High Rung (3)": 0,
+    "Traversal Rung (4)": 0,
+}
+
+defense_level_as_percentage_dict = {
     "No": 0,
     "Unsure": 0.5,
     "Yes": 1,
     "": -1,
+}
+
+defense_level_empty_count_dict = {
+    "No": 0,
+    "Unsure": 0,
+    "Yes": 0,
 }
 
 
@@ -87,6 +148,8 @@ class TeamData:
     avg_tele_points: float = 0
     avg_defense_equivalent: float = 0
     avg_climb_points: float = 0
+    hangar_level_count_dict: dict = field(default_factory=dict)
+    defense_level_count_dict: dict = field(default_factory=dict)
 
 
 #############
@@ -179,8 +242,8 @@ with open(input_file_name, "r", newline="") as input_csv_file:
                     row_data[8]),
                 tele_cargo_scored_lower=get_max_value_from_comma_separated_numbers(
                     row_data[9]),
-                hangar_level=hangar_level_dict[row_data[10]],
-                defense_level=defense_level_dict[row_data[11]],
+                hangar_level=hangar_level_points_dict[row_data[10]],
+                defense_level=defense_level_as_percentage_dict[row_data[11]],
                 other_info=row_data[12]
             )
 
@@ -196,14 +259,19 @@ with open(input_file_name, "r", newline="") as input_csv_file:
 # these classes. Then, add the current match entry to its corresponding class containing all
 # of that team's match entries.
 for match_entry in all_team_match_entries:
-    # If the team num is -1 (due to an error), skip this iteration of the for loop
+    # If the team num is -1 (due to an input error), skip this iteration of the for loop
     if match_entry.team_num == -1:
         continue
+
     if match_entry.team_num not in team_num_list:
         team_num_list.append(match_entry.team_num)
 
         new_single_team_data = TeamData()
         new_single_team_data.team_num = match_entry.team_num
+        new_single_team_data.hangar_level_count_dict = {
+            key: value for key, value in hangar_level_empty_count_dict.items()}
+        new_single_team_data.defense_level_count_dict = {
+            key: value for key, value in defense_level_empty_count_dict.items()}
 
         all_team_data.append(new_single_team_data)
 
@@ -225,8 +293,18 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
     percent_format = output_workbook.add_format({'num_format': '0.0%'})
     one_decimal_format = output_workbook.add_format({'num_format': '0.0'})
 
+    # Create color formats for each team color for use later on in the ranking sheet
+    for key, value in team_labeling_colors.items():
+        new_format = output_workbook.add_format({'num_format': '0'})
+        new_format.set_bg_color(value)
+        team_labeling_formats.update({key: new_format})
+
     # Sort the team number list in ascending order
     team_num_list = sorted(team_num_list)
+
+    # Create the ranking worksheet first
+    ranking_worksheet = output_workbook.add_worksheet("Rankings")
+    output_worksheets.append(ranking_worksheet)
 
     # Create a new sheet for every team
     for team_num in team_num_list:
@@ -250,31 +328,31 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
 
                 # First row, containing titles of the columns
                 single_teams_worksheet.write(
-                    0, 0, "Qualification Number")
+                    DATA_START_ROW, 0, "Qualification Number")
                 single_teams_worksheet.write(
-                    0, 1, "Taxi")
+                    DATA_START_ROW, 1, "Taxi")
                 single_teams_worksheet.write(
-                    0, 2, "AUTO - Cargo Scored [Upper Hub]")
+                    DATA_START_ROW, 2, "AUTO - Cargo Scored [Upper Hub]")
                 single_teams_worksheet.write(
-                    0, 3, "AUTO - Cargo Scored [Lower Hub]")
+                    DATA_START_ROW, 3, "AUTO - Cargo Scored [Lower Hub]")
                 single_teams_worksheet.write(
-                    0, 4, "TELEOP - Cargo Scored [Upper Hub]")
+                    DATA_START_ROW, 4, "TELEOP - Cargo Scored [Upper Hub]")
                 single_teams_worksheet.write(
-                    0, 5, "TELEOP - Cargo Scored [Lower Hub]")
+                    DATA_START_ROW, 5, "TELEOP - Cargo Scored [Lower Hub]")
                 single_teams_worksheet.write(
-                    0, 6, "Hangar")
+                    DATA_START_ROW, 6, "Hangar")
                 single_teams_worksheet.write(
-                    0, 7, "Mostly defense?")
+                    DATA_START_ROW, 7, "Mostly defense?")
                 single_teams_worksheet.write(
-                    0, 8, "Other Information")
+                    DATA_START_ROW, 8, "Other Information")
 
                 # For charts later on
                 single_teams_worksheet.write(
-                    0, 23, "Taxi Num")
+                    DATA_START_ROW, 23, "Taxi Num")
                 single_teams_worksheet.write(
-                    0, 24, "Climb Num")
+                    DATA_START_ROW, 24, "Climb Num")
                 single_teams_worksheet.write(
-                    0, 25, "Defense Num")
+                    DATA_START_ROW, 25, "Defense Num")
 
                 # Set the column widths to make the text legible
                 single_teams_worksheet.set_column_pixels(0, 0, 120)   # Qual
@@ -304,43 +382,45 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                     taxi_string = "Yes" if match.successfully_completed_taxi == 1 else "No"
 
                     hangar_string = "ERROR"
-                    for key, value in hangar_level_dict.items():
+                    for key, value in hangar_level_points_dict.items():
                         if match.hangar_level == value:
                             hangar_string = key
+                            single_teams_data.hangar_level_count_dict[key] += 1
 
                     defense_string = "ERROR"
-                    for key, value in defense_level_dict.items():
+                    for key, value in defense_level_as_percentage_dict.items():
                         if match.defense_level == value:
                             defense_string = key
+                            single_teams_data.defense_level_count_dict[key] += 1
 
                     # i + 1 is needed because i starts counting at 0, but I want the first
                     # row of match data to be in the row at index 1, not 0.
                     single_teams_worksheet.write(
-                        i + 1, 0, match.qual_match_num)
+                        DATA_START_ROW + i + 1, 0, match.qual_match_num)
                     single_teams_worksheet.write(
-                        i + 1, 1, taxi_string)
+                        DATA_START_ROW + i + 1, 1, taxi_string)
                     single_teams_worksheet.write(
-                        i + 1, 2, match.auto_cargo_scored_upper)
+                        DATA_START_ROW + i + 1, 2, match.auto_cargo_scored_upper)
                     single_teams_worksheet.write(
-                        i + 1, 3, match.auto_cargo_scored_lower)
+                        DATA_START_ROW + i + 1, 3, match.auto_cargo_scored_lower)
                     single_teams_worksheet.write(
-                        i + 1, 4, match.tele_cargo_scored_upper)
+                        DATA_START_ROW + i + 1, 4, match.tele_cargo_scored_upper)
                     single_teams_worksheet.write(
-                        i + 1, 5, match.tele_cargo_scored_lower)
+                        DATA_START_ROW + i + 1, 5, match.tele_cargo_scored_lower)
                     single_teams_worksheet.write(
-                        i + 1, 6, hangar_string)
+                        DATA_START_ROW + i + 1, 6, hangar_string)
                     single_teams_worksheet.write(
-                        i + 1, 7, defense_string)
+                        DATA_START_ROW + i + 1, 7, defense_string)
                     single_teams_worksheet.write(
-                        i + 1, 8, match.other_info)
+                        DATA_START_ROW + i + 1, 8, match.other_info)
 
                     # For charts later on
                     single_teams_worksheet.write(
-                        i + 1, 23, match.successfully_completed_taxi)
+                        DATA_START_ROW + i + 1, 23, match.successfully_completed_taxi)
                     single_teams_worksheet.write(
-                        i + 1, 24, match.hangar_level)
+                        DATA_START_ROW + i + 1, 24, match.hangar_level)
                     single_teams_worksheet.write(
-                        i + 1, 25, match.defense_level)
+                        DATA_START_ROW + i + 1, 25, match.defense_level)
 
                     # Add up the team total numbers across all matches
                     team_total_taxi_equivalent += match.successfully_completed_taxi
@@ -350,6 +430,28 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                     team_total_tele_cargo_lower += match.tele_cargo_scored_lower
                     team_total_defense_equivalent += match.defense_level
                     team_total_climb_points += match.hangar_level
+
+                # Write climb total counts to sheet for pie charts later
+                single_teams_worksheet.write(
+                    DATA_START_ROW, 19, "Hangar levels")
+                single_teams_worksheet.write(
+                    DATA_START_ROW, 20, "Frequency")
+                for i, (key, value) in enumerate(single_teams_data.hangar_level_count_dict.items()):
+                    single_teams_worksheet.write(
+                        DATA_START_ROW + i + 1, 19, key)
+                    single_teams_worksheet.write(
+                        DATA_START_ROW + i + 1, 20, value)
+
+                # Write defense total counts to sheet for pie charts later
+                single_teams_worksheet.write(
+                    DATA_START_ROW, 21, "Hangar levels")
+                single_teams_worksheet.write(
+                    DATA_START_ROW, 22, "Frequency")
+                for i, (key, value) in enumerate(single_teams_data.defense_level_count_dict.items()):
+                    single_teams_worksheet.write(
+                        DATA_START_ROW + i + 1, 21, key)
+                    single_teams_worksheet.write(
+                        DATA_START_ROW + i + 1, 22, value)
 
                 # Get the current number of matches this team has completed
                 current_match_count = len(single_teams_data.match_data)
@@ -371,6 +473,18 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                     2 * team_avg_auto_cargo_upper
                 single_teams_data.avg_defense_equivalent = team_avg_defense_equivalent
                 single_teams_data.avg_climb_points = team_avg_climb_points
+
+                # Add team statistics to lists for ranking
+                all_team_avg_match_contribution.append(
+                    (team_num, single_teams_data.avg_auto_points + single_teams_data.avg_tele_points + single_teams_data.avg_tele_points))
+                all_team_avg_auto.append(
+                    (team_num, single_teams_data.avg_auto_points))
+                all_team_avg_tele.append(
+                    (team_num, single_teams_data.avg_tele_points))
+                all_team_avg_climb.append(
+                    (team_num, single_teams_data.avg_climb_points))
+                all_team_defense_percent.append(
+                    (team_num, single_teams_data.avg_defense_equivalent))
 
                 # Print averages to the spreadsheet
                 single_teams_worksheet.write(
@@ -458,15 +572,15 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                      'max': MAX_POSSIBLE_AUTO_POINTS})
                 cargo_in_auto_chart.add_series({
                     'name': 'Upper Hub',
-                    'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
-                    'values': f'={single_teams_data.team_num}!C2:C{current_match_count + 1}',
-                    'fill': {'color': CHART_BLUE},
+                    'categories': f'={single_teams_data.team_num}!A{DATA_START_ROW + 2}:A{DATA_START_ROW + current_match_count + 1}',
+                    'values': f'={single_teams_data.team_num}!C{DATA_START_ROW + 2}:C{DATA_START_ROW + current_match_count + 1}',
+                    'fill': {'color': chart_colors["BLUE"]},
                 })
                 cargo_in_auto_chart.add_series({
                     'name': 'Lower Hub',
-                    'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
-                    'values': f'={single_teams_data.team_num}!D2:D{current_match_count + 1}',
-                    'fill': {'color': CHART_RED},
+                    'categories': f'={single_teams_data.team_num}!A{DATA_START_ROW + 2}:A{DATA_START_ROW + current_match_count + 1}',
+                    'values': f'={single_teams_data.team_num}!D{DATA_START_ROW + 2}:D{DATA_START_ROW + current_match_count + 1}',
+                    'fill': {'color': chart_colors["RED"]},
                 })
 
                 single_teams_worksheet.insert_chart(
@@ -485,21 +599,19 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                      'max': MAX_POSSIBLE_TELE_POINTS})
                 cargo_in_teleop_chart.add_series({
                     'name': 'Upper Hub',
-                    'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
-                    'values': f'={single_teams_data.team_num}!E2:E{current_match_count + 1}',
-                    'fill': {'color': CHART_BLUE},
+                    'categories': f'={single_teams_data.team_num}!A{DATA_START_ROW + 2}:A{DATA_START_ROW + current_match_count + 1}',
+                    'values': f'={single_teams_data.team_num}!E{DATA_START_ROW + 2}:E{DATA_START_ROW + current_match_count + 1}',
+                    'fill': {'color': chart_colors["BLUE"]},
                 })
                 cargo_in_teleop_chart.add_series({
                     'name': 'Lower Hub',
-                    'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
-                    'values': f'={single_teams_data.team_num}!F2:F{current_match_count + 1}',
-                    'fill': {'color': CHART_RED},
+                    'categories': f'={single_teams_data.team_num}!A{DATA_START_ROW + 2}:A{DATA_START_ROW + current_match_count + 1}',
+                    'values': f'={single_teams_data.team_num}!F{DATA_START_ROW + 2}:F{DATA_START_ROW + current_match_count + 1}',
+                    'fill': {'color': chart_colors["RED"]},
                 })
 
                 single_teams_worksheet.insert_chart(
                     f"{SECOND_CHART_COL}{CHART_START_ROW}", cargo_in_teleop_chart)
-
-                # TODO: Hangar Pie Chart
 
                 # Create the chart for hangar level across matches
                 hangar_points_over_time_chart = output_workbook.add_chart(
@@ -514,16 +626,194 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                      'max': 15})
                 hangar_points_over_time_chart.add_series({
                     'name': 'Hangar Points',
-                    'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
-                    'values': f'={single_teams_data.team_num}!Y2:Y{current_match_count + 1}',
-                    'fill': {'color': CHART_RED},
+                    'categories': f'={single_teams_data.team_num}!A{DATA_START_ROW + 2}:A{DATA_START_ROW + current_match_count + 1}',
+                    'values': f'={single_teams_data.team_num}!Y{DATA_START_ROW + 2}:Y{DATA_START_ROW + current_match_count + 1}',
+                    'fill': {'color': chart_colors["RED"]},
                 })
 
                 single_teams_worksheet.insert_chart(
                     f"{SECOND_CHART_COL}{CHART_START_ROW + CHART_ROW_SPACING}", hangar_points_over_time_chart)
 
-                # TODO: Defense Pie Chart
+                # Hangar Pie Chart
+                hangar_pie_chart = output_workbook.add_chart(
+                    {'type': 'pie'})
+                hangar_pie_chart.set_title(
+                    {'name': 'Climb Level Breakdown'})
+                hangar_pie_chart.add_series({
+                    'name': 'Climb Level',
+                    'categories': f'={single_teams_data.team_num}!T{DATA_START_ROW + 2}:T{DATA_START_ROW + 6}',
+                    'values': f'={single_teams_data.team_num}!U{DATA_START_ROW + 2}:U{DATA_START_ROW + 6}',
+                    'points': [
+                        {'fill': {'color': chart_colors["BLACK"]}},
+                        {'fill': {'color': chart_colors["RED"]}},
+                        {'fill': {'color': chart_colors["YELLOW"]}},
+                        {'fill': {'color': chart_colors["BLUE"]}},
+                        {'fill': {'color': chart_colors["GREEN"]}},
+                    ]
+                })
+
+                single_teams_worksheet.insert_chart(
+                    f"{THIRD_CHART_COL}{CHART_START_ROW + CHART_ROW_SPACING}", hangar_pie_chart)
+
+                # Defense Pie Chart
+                defense_pie_chart = output_workbook.add_chart(
+                    {'type': 'pie'})
+                defense_pie_chart.set_title(
+                    {'name': 'Does This Team Play Defense?'})
+                defense_pie_chart.add_series({
+                    'name': 'Defense',
+                    'categories': f'={single_teams_data.team_num}!V{DATA_START_ROW + 2}:V{DATA_START_ROW + 4}',
+                    'values': f'={single_teams_data.team_num}!W{DATA_START_ROW + 2}:W{DATA_START_ROW + 4}',
+                    'points': [
+                        {'fill': {'color': chart_colors["RED"]}},
+                        {'fill': {'color': chart_colors["YELLOW"]}},
+                        {'fill': {'color': chart_colors["GREEN"]}},
+                    ]
+                })
+
+                single_teams_worksheet.insert_chart(
+                    f"{THIRD_CHART_COL}{CHART_START_ROW}", defense_pie_chart)
+
                 # TODO: Extremely fancy graphs that look absurd
-                # TODO: Sheet for ranks by category
+
+    # Sort/rank all of the team's individual statistics to find leaders in each category
+    all_team_avg_match_contribution = sorted(
+        all_team_avg_match_contribution,
+        key=lambda x: x[1],
+        reverse=True)
+    all_team_avg_auto = sorted(
+        all_team_avg_auto,
+        key=lambda x: x[1],
+        reverse=True)
+    all_team_avg_tele = sorted(
+        all_team_avg_tele,
+        key=lambda x: x[1],
+        reverse=True)
+    all_team_avg_climb = sorted(
+        all_team_avg_climb,
+        key=lambda x: x[1],
+        reverse=True)
+    all_team_defense_percent = sorted(
+        all_team_defense_percent,
+        key=lambda x: x[1],
+        reverse=True)
+
+    # Add the top 5 from each category to a set of all of these teams, where duplicates will
+    # be avoided. This list will determine which teams get colored
+    top_teams_across_categories += all_team_avg_match_contribution[0:
+                                                                   NUM_OF_TOP_TEAMS_TO_COLOR_PER_CATEGORY]
+    top_teams_across_categories += all_team_avg_auto[0:
+                                                     NUM_OF_TOP_TEAMS_TO_COLOR_PER_CATEGORY]
+    top_teams_across_categories += all_team_avg_tele[0:
+                                                     NUM_OF_TOP_TEAMS_TO_COLOR_PER_CATEGORY]
+    top_teams_across_categories += all_team_avg_climb[0:
+                                                      NUM_OF_TOP_TEAMS_TO_COLOR_PER_CATEGORY]
+    top_teams_across_categories += all_team_defense_percent[0:
+                                                            NUM_OF_TOP_TEAMS_TO_COLOR_PER_CATEGORY]
+
+    # Get a list of unique teams that are at the top of at least one category
+    top_teams_across_categories = list(set([
+        team for (team, junk) in top_teams_across_categories]))
+
+    # Add a number to each team that corresponds to its color on the ranking sheet
+    top_teams_across_categories = {
+        team: i + 1 for i, team in enumerate(top_teams_across_categories)}
+
+    # Write the column headers
+    ranking_worksheet.write(0, 0, "#")
+    ranking_worksheet.write(0, 2, "Team")
+    ranking_worksheet.write(0, 3, "Avg. Match Contribution (Pts.)")
+    ranking_worksheet.write(0, 5, "Team")
+    ranking_worksheet.write(0, 6, "Avg. Auto Pts.")
+    ranking_worksheet.write(0, 8, "Team")
+    ranking_worksheet.write(0, 9, "Avg. Teleop Pts.")
+    ranking_worksheet.write(0, 11, "Team")
+    ranking_worksheet.write(0, 12, "Avg. Climb Pts.")
+    ranking_worksheet.write(0, 14, "Team")
+    ranking_worksheet.write(0, 15, "Defense %")
+
+    # Set the column widths so the text is legible
+    ranking_worksheet.set_column_pixels(0, 0, 20)  # Num
+    ranking_worksheet.set_column_pixels(1, 1, 10)    # Gap
+    ranking_worksheet.set_column_pixels(2, 2, 40)   # Team
+    ranking_worksheet.set_column_pixels(3, 3, 170)  # Match pts
+    ranking_worksheet.set_column_pixels(4, 4, 10)   # Gap
+    ranking_worksheet.set_column_pixels(5, 5, 40)   # Team
+    ranking_worksheet.set_column_pixels(6, 6, 80)  # Auto pts
+    ranking_worksheet.set_column_pixels(7, 7, 10)   # Gap
+    ranking_worksheet.set_column_pixels(8, 8, 40)   # Team
+    ranking_worksheet.set_column_pixels(9, 9, 90)  # Teleop pts
+    ranking_worksheet.set_column_pixels(10, 10, 10)  # Gap
+    ranking_worksheet.set_column_pixels(11, 11, 40)  # Team
+    ranking_worksheet.set_column_pixels(12, 12, 85)    # Climb
+    ranking_worksheet.set_column_pixels(13, 13, 10)  # Gap
+    ranking_worksheet.set_column_pixels(14, 14, 40)  # Team
+    ranking_worksheet.set_column_pixels(15, 15, 60)  # Defense
+
+    # Add ranking numbers to the rank sheet
+    for i, team_num in enumerate(team_num_list):
+        ranking_worksheet.write(i + 1, 0, i + 1)
+
+    # List all teams by average match contribution
+    for i, (team_num, pts) in enumerate(all_team_avg_match_contribution):
+        if team_num in top_teams_across_categories:
+            for top_team_num, j in top_teams_across_categories.items():
+                if team_num == top_team_num:
+                    ranking_worksheet.write(
+                        i + 1, 2, team_num, team_labeling_formats[j])
+        else:
+            ranking_worksheet.write(i + 1, 2, team_num)
+        ranking_worksheet.write(i + 1, 3, pts, one_decimal_format)
+
+    # List all teams by average auto points
+    for i, (team_num, pts) in enumerate(all_team_avg_auto):
+        if team_num in top_teams_across_categories:
+            for top_team_num, j in top_teams_across_categories.items():
+                if team_num == top_team_num:
+                    ranking_worksheet.write(
+                        i + 1, 5, team_num, team_labeling_formats[j])
+        else:
+            ranking_worksheet.write(i + 1, 5, team_num)
+        ranking_worksheet.write(i + 1, 6, pts, one_decimal_format)
+
+    # List all teams by average teleop points
+    for i, (team_num, pts) in enumerate(all_team_avg_tele):
+        if team_num in top_teams_across_categories:
+            for top_team_num, j in top_teams_across_categories.items():
+                if team_num == top_team_num:
+                    ranking_worksheet.write(
+                        i + 1, 8, team_num, team_labeling_formats[j])
+        else:
+            ranking_worksheet.write(i + 1, 8, team_num)
+        ranking_worksheet.write(i + 1, 9, pts, one_decimal_format)
+
+    # List all teams by average climb points
+    for i, (team_num, pts) in enumerate(all_team_avg_climb):
+        if team_num in top_teams_across_categories:
+            for top_team_num, j in top_teams_across_categories.items():
+                if team_num == top_team_num:
+                    ranking_worksheet.write(
+                        i + 1, 11, team_num, team_labeling_formats[j])
+        else:
+            ranking_worksheet.write(i + 1, 11, team_num)
+        ranking_worksheet.write(i + 1, 12, pts, one_decimal_format)
+
+    # List all teams by defense percentage
+    for i, (team_num, pts) in enumerate(all_team_defense_percent):
+        if team_num in top_teams_across_categories:
+            for top_team_num, j in top_teams_across_categories.items():
+                if team_num == top_team_num:
+                    ranking_worksheet.write(
+                        i + 1, 14, team_num, team_labeling_formats[j])
+        else:
+            ranking_worksheet.write(i + 1, 14, team_num)
+        ranking_worksheet.write(i + 1, 15, pts, one_decimal_format)
+
+    # Add rank numbers back into each team's worksheet
+    for single_team_worksheet in output_worksheets:
+        for team_num in team_num_list:
+            if str(team_num) == single_team_worksheet.name:
+                pass
+
 
 print("\n> Successfully Created Ouput Workbook\n")
