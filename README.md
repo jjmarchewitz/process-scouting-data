@@ -12,4 +12,5 @@ Usage Instructions:\
 2.) Place the .CSV into the repository folder, and rename it "input.csv"\
 3.) Run the python script\
 &nbsp;&nbsp;&nbsp;&nbsp;a.) On Windows, "python process_data.py" while your cmd is located in the repository folder\
-&nbsp;&nbsp;&nbsp;&nbsp;b.) On macOS/Linux, use "python3 process_data.py"
+&nbsp;&nbsp;&nbsp;&nbsp;b.) On macOS/Linux, use "python3 process_data.py"\
+4.) Open "output_data.xlsx" in Excel
