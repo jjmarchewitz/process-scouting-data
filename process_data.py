@@ -23,7 +23,7 @@ AVERAGES_ROW = 16
 STATISTICS_START_ROW = 18
 STATISTICS_START_COL = 0
 CHART_START_ROW = 25
-CHART_ROW_SPACING = 10
+CHART_ROW_SPACING = 16
 FIRST_CHART_COL = "A"
 SECOND_CHART_COL = "E"
 current_match_count = 0
@@ -57,8 +57,8 @@ hangar_level_dict = {
 
 defense_level_dict = {
     "No": 0,
-    "Unsure": 1,
-    "Yes": 2,
+    "Unsure": 0.5,
+    "Yes": 1,
     "": -1,
 }
 
@@ -221,6 +221,10 @@ for match_entry in all_team_match_entries:
 # separate tab
 with xlsxwriter.Workbook(output_file_name) as output_workbook:
 
+    # Cell formatting objects to format cells as percents, decimals, etc.
+    percent_format = output_workbook.add_format({'num_format': '0.0%'})
+    one_decimal_format = output_workbook.add_format({'num_format': '0.0'})
+
     # Sort the team number list in ascending order
     team_num_list = sorted(team_num_list)
 
@@ -264,9 +268,17 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                 single_teams_worksheet.write(
                     0, 8, "Other Information")
 
+                # For charts later on
+                single_teams_worksheet.write(
+                    0, 23, "Taxi Num")
+                single_teams_worksheet.write(
+                    0, 24, "Climb Num")
+                single_teams_worksheet.write(
+                    0, 25, "Defense Num")
+
                 # Set the column widths to make the text legible
                 single_teams_worksheet.set_column_pixels(0, 0, 120)   # Qual
-                single_teams_worksheet.set_column_pixels(1, 1, 40)   # Taxi
+                single_teams_worksheet.set_column_pixels(1, 1, 50)   # Taxi
                 single_teams_worksheet.set_column_pixels(
                     2, 3, 180)                                        # Auto cargo (both)
                 single_teams_worksheet.set_column_pixels(
@@ -322,6 +334,14 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                     single_teams_worksheet.write(
                         i + 1, 8, match.other_info)
 
+                    # For charts later on
+                    single_teams_worksheet.write(
+                        i + 1, 23, match.successfully_completed_taxi)
+                    single_teams_worksheet.write(
+                        i + 1, 24, match.hangar_level)
+                    single_teams_worksheet.write(
+                        i + 1, 25, match.defense_level)
+
                     # Add up the team total numbers across all matches
                     team_total_taxi_equivalent += match.successfully_completed_taxi
                     team_total_auto_cargo_upper += match.auto_cargo_scored_upper
@@ -356,45 +376,74 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                 single_teams_worksheet.write(
                     AVERAGES_ROW, 0, "Averages:")
                 single_teams_worksheet.write(
-                    AVERAGES_ROW, 1, team_avg_taxi_percent)
+                    AVERAGES_ROW, 1, team_avg_taxi_percent, percent_format)
                 single_teams_worksheet.write(
-                    AVERAGES_ROW, 2, team_avg_auto_cargo_upper)
+                    AVERAGES_ROW, 2, team_avg_auto_cargo_upper, one_decimal_format)
                 single_teams_worksheet.write(
-                    AVERAGES_ROW, 3, team_avg_auto_cargo_lower)
+                    AVERAGES_ROW, 3, team_avg_auto_cargo_lower, one_decimal_format)
                 single_teams_worksheet.write(
-                    AVERAGES_ROW, 4, team_avg_tele_cargo_upper)
+                    AVERAGES_ROW, 4, team_avg_tele_cargo_upper, one_decimal_format)
                 single_teams_worksheet.write(
-                    AVERAGES_ROW, 5, team_avg_tele_cargo_lower)
+                    AVERAGES_ROW, 5, team_avg_tele_cargo_lower, one_decimal_format)
                 single_teams_worksheet.write(
-                    AVERAGES_ROW, 6, team_avg_climb_points)
+                    AVERAGES_ROW, 6, team_avg_climb_points, one_decimal_format)
                 single_teams_worksheet.write(
-                    AVERAGES_ROW, 7, team_avg_defense_equivalent)
+                    AVERAGES_ROW, 7, team_avg_defense_equivalent, percent_format)
 
                 # Summary statistics
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW, STATISTICS_START_COL, "Taxi Percentage: ")
+                    STATISTICS_START_ROW,
+                    STATISTICS_START_COL,
+                    "Taxi Percentage: ")
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW, STATISTICS_START_COL + 1, single_teams_data.taxi_percent)
+                    STATISTICS_START_ROW,
+                    STATISTICS_START_COL + 1,
+                    single_teams_data.taxi_percent,
+                    percent_format)
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 1, STATISTICS_START_COL, "Avg. Auto Points: ")
+                    STATISTICS_START_ROW + 1,
+                    STATISTICS_START_COL,
+                    "Avg. Auto Points: ")
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 1, STATISTICS_START_COL + 1, single_teams_data.avg_auto_points)
+                    STATISTICS_START_ROW + 1,
+                    STATISTICS_START_COL + 1,
+                    single_teams_data.avg_auto_points,
+                    one_decimal_format)
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 1, STATISTICS_START_COL + 2, "(Including avg. taxi points)")
+                    STATISTICS_START_ROW + 1,
+                    STATISTICS_START_COL + 2,
+                    "(Including avg. taxi points)")
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 2, STATISTICS_START_COL, "Avg. Teleop Points: ")
+                    STATISTICS_START_ROW + 2,
+                    STATISTICS_START_COL,
+                    "Avg. Teleop Points: ")
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 2, STATISTICS_START_COL + 1, single_teams_data.avg_tele_points)
+                    STATISTICS_START_ROW + 2,
+                    STATISTICS_START_COL + 1,
+                    single_teams_data.avg_tele_points,
+                    one_decimal_format)
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 3, STATISTICS_START_COL, "Avg. Defense: ")
+                    STATISTICS_START_ROW + 3,
+                    STATISTICS_START_COL,
+                    "Avg. Defense: ")
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 3, STATISTICS_START_COL + 1, single_teams_data.avg_defense_equivalent)
+                    STATISTICS_START_ROW + 3,
+                    STATISTICS_START_COL + 1,
+                    single_teams_data.avg_defense_equivalent,
+                    percent_format)
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 3, STATISTICS_START_COL + 2, "(2 = Yes/Always, 1 = Unsure/Mixed, 0 = No/Never)")
+                    STATISTICS_START_ROW + 3,
+                    STATISTICS_START_COL + 2,
+                    "(100% = Yes/Always, 0% = No/Never)")
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 4, STATISTICS_START_COL, "Avg. Climb Points: ")
+                    STATISTICS_START_ROW + 4,
+                    STATISTICS_START_COL,
+                    "Avg. Climb Points: ")
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 4, STATISTICS_START_COL + 1, single_teams_data.avg_climb_points)
+                    STATISTICS_START_ROW + 4,
+                    STATISTICS_START_COL + 1,
+                    single_teams_data.avg_climb_points,
+                    one_decimal_format)
 
                 # Create the chart for cargo scored in auto (high vs. low)
                 cargo_in_auto_chart = output_workbook.add_chart(
@@ -405,6 +454,7 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                     {'name': 'Qualification Match'})
                 cargo_in_auto_chart.set_y_axis(
                     {'name': 'Cargo Scored',
+                     'min': 0,
                      'max': MAX_POSSIBLE_AUTO_POINTS})
                 cargo_in_auto_chart.add_series({
                     'name': 'Upper Hub',
@@ -431,6 +481,7 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                     {'name': 'Qualification Match'})
                 cargo_in_teleop_chart.set_y_axis(
                     {'name': 'Cargo Scored',
+                     'min': 0,
                      'max': MAX_POSSIBLE_TELE_POINTS})
                 cargo_in_teleop_chart.add_series({
                     'name': 'Upper Hub',
@@ -448,8 +499,31 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                 single_teams_worksheet.insert_chart(
                     f"{SECOND_CHART_COL}{CHART_START_ROW}", cargo_in_teleop_chart)
 
-                # TODO: Defense Pie Chart
                 # TODO: Hangar Pie Chart
-                # TODO: Hangar level across matches
+
+                # Create the chart for hangar level across matches
+                hangar_points_over_time_chart = output_workbook.add_chart(
+                    {'type': 'column'})
+                hangar_points_over_time_chart.set_title(
+                    {'name': 'Hangar Points Over Time'})
+                hangar_points_over_time_chart.set_x_axis(
+                    {'name': 'Qualification Match'})
+                hangar_points_over_time_chart.set_y_axis(
+                    {'name': 'Hangar Points',
+                     'min': 0,
+                     'max': 15})
+                hangar_points_over_time_chart.add_series({
+                    'name': 'Hangar Points',
+                    'categories': f'={single_teams_data.team_num}!A2:A{current_match_count + 1}',
+                    'values': f'={single_teams_data.team_num}!Y2:Y{current_match_count + 1}',
+                    'fill': {'color': CHART_RED},
+                })
+
+                single_teams_worksheet.insert_chart(
+                    f"{SECOND_CHART_COL}{CHART_START_ROW + CHART_ROW_SPACING}", hangar_points_over_time_chart)
+
+                # TODO: Defense Pie Chart
                 # TODO: Extremely fancy graphs that look absurd
                 # TODO: Sheet for ranks by category
+
+print("\n> Successfully Created Ouput Workbook\n")
