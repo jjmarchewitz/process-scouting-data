@@ -1,7 +1,7 @@
 # Process-Scouting-Data
 
 Installation Instructions:\
-1.) Install Python 3 (https://www.python.org/downloads/)\
+1.) Install Python 3 (https://www.python.org/downloads/) \
 2.) Clone this repository with HTTPS (not SSH or Git CLI)\
 3.) Install dependent libraries\
 &nbsp;&nbsp;&nbsp;&nbsp;a.) On Windows, use "python -m pip install -r requirements.txt" while your cmd is located in the repository folder\
