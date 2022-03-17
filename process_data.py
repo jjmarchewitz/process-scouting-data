@@ -1,10 +1,8 @@
 import csv
-import enum
 import os
 import xlsxwriter
 from dataclasses import dataclass, field
 
-# TODO: Deal with duplicate match data for a team
 
 ####################
 # GLOBAL VARIABLES #
@@ -26,8 +24,8 @@ all_team_defense_percent = []
 top_teams_across_categories = []
 
 MAX_NUMBER_OF_QUAL_MATCHES = 15
-DATA_START_ROW = 32
-AVERAGES_ROW = DATA_START_ROW + MAX_NUMBER_OF_QUAL_MATCHES + 1
+DATA_START_ROW = 37
+AVERAGES_ROW = 33
 STATISTICS_START_ROW = 16
 STATISTICS_START_COL = 0
 CHART_START_ROW = 1
@@ -277,7 +275,15 @@ for match_entry in all_team_match_entries:
 
     for single_teams_data in all_team_data:
         if single_teams_data.team_num == match_entry.team_num:
-            single_teams_data.match_data.append(match_entry)
+
+            duplicate_entry = False
+
+            for single_team_match in single_teams_data.match_data:
+                if match_entry.qual_match_num == single_team_match.qual_match_num:
+                    duplicate_entry = True
+
+            if not duplicate_entry:
+                single_teams_data.match_data.append(match_entry)
 
 
 ###############################
@@ -326,7 +332,25 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
 
                 # Populate the worksheet for this team with match data, graphs, etc.
 
-                # First row, containing titles of the columns
+                # Data category titles for averages
+                single_teams_worksheet.write(
+                    AVERAGES_ROW - 1, 1, "Taxi")
+                single_teams_worksheet.write(
+                    AVERAGES_ROW - 1, 2, "AUTO - Cargo Scored [Upper Hub]")
+                single_teams_worksheet.write(
+                    AVERAGES_ROW - 1, 3, "AUTO - Cargo Scored [Lower Hub]")
+                single_teams_worksheet.write(
+                    AVERAGES_ROW - 1, 4, "TELEOP - Cargo Scored [Upper Hub]")
+                single_teams_worksheet.write(
+                    AVERAGES_ROW - 1, 5, "TELEOP - Cargo Scored [Lower Hub]")
+                single_teams_worksheet.write(
+                    AVERAGES_ROW - 1, 6, "Hangar")
+                single_teams_worksheet.write(
+                    AVERAGES_ROW - 1, 7, "Mostly defense?")
+
+                # Data category titles for match data
+                single_teams_worksheet.write(
+                    DATA_START_ROW - 1, 0, "MATCH DATA")
                 single_teams_worksheet.write(
                     DATA_START_ROW, 0, "Qualification Number")
                 single_teams_worksheet.write(
@@ -539,25 +563,25 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                 single_teams_worksheet.write(
                     STATISTICS_START_ROW + 3,
                     STATISTICS_START_COL,
-                    "Avg. Defense: ")
+                    "Avg. Climb Points: ")
                 single_teams_worksheet.write(
                     STATISTICS_START_ROW + 3,
+                    STATISTICS_START_COL + 1,
+                    single_teams_data.avg_climb_points,
+                    one_decimal_format)
+                single_teams_worksheet.write(
+                    STATISTICS_START_ROW + 4,
+                    STATISTICS_START_COL,
+                    "Defense Percentage: ")
+                single_teams_worksheet.write(
+                    STATISTICS_START_ROW + 4,
                     STATISTICS_START_COL + 1,
                     single_teams_data.avg_defense_equivalent,
                     percent_format)
                 single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 3,
+                    STATISTICS_START_ROW + 4,
                     STATISTICS_START_COL + 2,
                     "(100% = Yes/Always, 0% = No/Never)")
-                single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 4,
-                    STATISTICS_START_COL,
-                    "Avg. Climb Points: ")
-                single_teams_worksheet.write(
-                    STATISTICS_START_ROW + 4,
-                    STATISTICS_START_COL + 1,
-                    single_teams_data.avg_climb_points,
-                    one_decimal_format)
 
                 # Create the chart for cargo scored in auto (high vs. low)
                 cargo_in_auto_chart = output_workbook.add_chart(
@@ -813,7 +837,37 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
     for single_team_worksheet in output_worksheets:
         for team_num in team_num_list:
             if str(team_num) == single_team_worksheet.name:
-                pass
+                # Write all of the ranked category titles to the sheet
+                single_team_worksheet.write(22, 0, "Ranked Category")
+                single_team_worksheet.write(22, 1, "Rank")
+                single_team_worksheet.write(23, 0, "Avg. Match Points")
+                single_team_worksheet.write(24, 0, "Avg. Auto Points")
+                single_team_worksheet.write(25, 0, "Avg. Teleop Points")
+                single_team_worksheet.write(26, 0, "Avg. Climb Points")
+                single_team_worksheet.write(27, 0, "Matches on Defense")
+
+                # Write the rank from each category to the sheet
+
+                # Avg total match points
+                for i, (avg_match_contrib_team_num, avg_match_contrib) in enumerate(all_team_avg_match_contribution):
+                    if team_num == avg_match_contrib_team_num:
+                        single_team_worksheet.write(23, 1, i + 1)
+                # Auto
+                for i, (avg_auto_team_num, avg_auto_pts) in enumerate(all_team_avg_auto):
+                    if team_num == avg_auto_team_num:
+                        single_team_worksheet.write(24, 1, i + 1)
+                # Teleop
+                for i, (avg_tele_team_num, avg_tele_pts) in enumerate(all_team_avg_tele):
+                    if team_num == avg_tele_team_num:
+                        single_team_worksheet.write(25, 1, i + 1)
+                # Climb
+                for i, (avg_climb_team_num, avg_climb_pts) in enumerate(all_team_avg_climb):
+                    if team_num == avg_climb_team_num:
+                        single_team_worksheet.write(26, 1, i + 1)
+                # Defense
+                for i, (percent_defense_team_num, percent_defense) in enumerate(all_team_defense_percent):
+                    if team_num == percent_defense_team_num:
+                        single_team_worksheet.write(27, 1, i + 1)
 
 
 print("\n> Successfully Created Ouput Workbook\n")
