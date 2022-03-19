@@ -68,9 +68,9 @@ team_labeling_colors = {
     11: "#6febff",
     12: "#f7aa30",
     13: "#992f7c",
-    14: "#00a6ee",
+    14: "#a12c32",
     15: "#acbe9c",
-    16: "#a12c32",
+    16: "#00a6ee",
     17: "#9b9500",
     18: "#08fdcc",
     19: "#827c70",
@@ -494,13 +494,13 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                 single_teams_data.avg_auto_points = 2 * team_avg_taxi_percent + \
                     2 * team_avg_auto_cargo_lower + 4 * team_avg_auto_cargo_upper
                 single_teams_data.avg_tele_points = team_avg_tele_cargo_lower + \
-                    2 * team_avg_auto_cargo_upper
+                    2 * team_avg_tele_cargo_upper
                 single_teams_data.avg_defense_equivalent = team_avg_defense_equivalent
                 single_teams_data.avg_climb_points = team_avg_climb_points
 
                 # Add team statistics to lists for ranking
                 all_team_avg_match_contribution.append(
-                    (team_num, single_teams_data.avg_auto_points + single_teams_data.avg_tele_points + single_teams_data.avg_tele_points))
+                    (team_num, single_teams_data.avg_auto_points + single_teams_data.avg_tele_points + single_teams_data.avg_climb_points))
                 all_team_avg_auto.append(
                     (team_num, single_teams_data.avg_auto_points))
                 all_team_avg_tele.append(
@@ -831,7 +831,7 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                         i + 1, 14, team_num, team_labeling_formats[j])
         else:
             ranking_worksheet.write(i + 1, 14, team_num)
-        ranking_worksheet.write(i + 1, 15, pts, one_decimal_format)
+        ranking_worksheet.write(i + 1, 15, pts, percent_format)
 
     # Add rank numbers back into each team's worksheet
     for single_team_worksheet in output_worksheets:
@@ -844,7 +844,7 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                 single_team_worksheet.write(24, 0, "Avg. Auto Points")
                 single_team_worksheet.write(25, 0, "Avg. Teleop Points")
                 single_team_worksheet.write(26, 0, "Avg. Climb Points")
-                single_team_worksheet.write(27, 0, "Matches on Defense")
+                single_team_worksheet.write(27, 0, "Amount of Defense")
 
                 # Write the rank from each category to the sheet
 
@@ -870,4 +870,4 @@ with xlsxwriter.Workbook(output_file_name) as output_workbook:
                         single_team_worksheet.write(27, 1, i + 1)
 
 
-print("\n> Successfully Created Ouput Workbook\n")
+print("\n> Successfully Created Output Workbook\n")
